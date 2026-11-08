@@ -1,0 +1,131 @@
+/* src/index.css */
+/* stylelint-disable at-rule-no-unknown */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* stylelint-enable at-rule-no-unknown */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Tailwind/DaisyUI customizations */
+@layer base {
+  html, body, #root {
+    @apply min-h-screen;
+  }
+
+  /* Use DaisyUI theme tokens for background/text */
+  body {
+    /* hsl(var(--b1)) and --bc come from DaisyUI themes */
+    background-color: hsl(var(--b1));
+    color: hsl(var(--bc));
+    @apply antialiased;
+  }
+
+  ::selection {
+    background-color: hsl(var(--p));
+    color: #fff;
+  }
+
+  /* Ensure form controls are readable on light surfaces */
+  input, textarea, select {
+    color: #0f172a; /* slate-900 */
+    background-color: #ffffff;
+  }
+  input::placeholder, textarea::placeholder {
+    color: #9ca3af; /* gray-400 */
+    opacity: 1;
+  }
+}
+
+@layer components {
+  /* Consistent container paddings */
+  .container {
+    @apply mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Card surface aligned with DaisyUI tokens */
+  .card-surface {
+    background-color: hsl(var(--b2));
+    border: 1px solid hsl(var(--b3));
+    border-radius: 0.75rem; /* rounded-xl */
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  }
+
+  /* Soft primary button variant (use alongside `btn`) */
+  .btn-primary-soft {
+    color: hsl(var(--p));
+    background-color: hsl(var(--p) / 0.10);
+    border: 1px solid hsl(var(--p) / 0.20);
+  }
+  .btn-primary-soft:hover {
+    background-color: hsl(var(--p) / 0.20);
+  }
+
+  /* Muted surface (panels, sections) */
+  .surface-muted {
+    background-color: hsl(var(--b2) / 0.60);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border-radius: 0.5rem; /* rounded-lg */
+    border: 1px solid hsl(var(--b3) / 0.60);
+  }
+}
+
+@layer utilities {
+  /* Focus ring accessible default */
+  .focus-ring:focus-visible {
+    outline: none;
+    /* ring-primary/60 with 2px offset on base-100 */
+    box-shadow:
+      0 0 0 2px hsl(var(--p) / 0.60),
+      0 0 0 4px hsl(var(--b1));
+  }
+
+  /* Smooth color transitions on theme switch */
+  .theme-transition {
+    @apply transition-colors duration-200;
+  }
+}
+
+/* Scrollbar styling (WebKit) using DaisyUI tokens */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: hsl(var(--b2));
+}
+*::-webkit-scrollbar-thumb {
+  background: hsl(var(--b3));
+  border: 2px solid hsl(var(--b2));
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--b3) / 0.9);
+}
+
+/* Base typography tweaks */
+h1 { @apply text-3xl sm:text-4xl font-semibold tracking-tight; }
+h2 { @apply text-2xl sm:text-3xl font-semibold tracking-tight; }
+h3 { @apply text-xl sm:text-2xl font-semibold; }
+p  { @apply leading-relaxed; }
+a  { color: hsl(var(--p)); text-decoration: none; }
+a:hover { text-decoration: underline; color: hsl(var(--p) / 0.90); }

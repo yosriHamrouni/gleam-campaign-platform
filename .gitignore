@@ -1,0 +1,8 @@
+node_modules/
+dist/
+# local MongoDB data directory
+data/
+.env
+.env.local
+.tmp.css
+*.log
