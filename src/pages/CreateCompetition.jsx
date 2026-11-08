@@ -1,374 +1,198 @@
 // src/pages/CreateCompetition.jsx
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, X, Image as ImageIcon } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { api } from '../lib/api';
+import { ACTION_TYPES, COMPETITION_TYPES, actionMeta, toLocalInput } from '../lib/format';
+import { ErrorBox } from '../components/ui';
 
-function CreateCompetition() {
+const emptyAction = { type: 'follow_instagram', value: '', points: 1 };
+
+export default function CreateCompetition() {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
+  const [form, setForm] = useState(() => ({
     title: '',
     description: '',
+    prize: '',
     type: 'standard',
-    startDate: '',
-    endDate: '',
-    entryFee: '',
-    coverImage: null,
-    actions: []
-  });
+    startDate: toLocalInput(Date.now()),
+    endDate: toLocalInput(Date.now() + 14 * 86_400_000),
+    winnersCount: 1,
+    coverImage: '',
+  }));
+  const [actions, setActions] = useState([]);
+  const [draft, setDraft] = useState(emptyAction);
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  const [message, setMessage] = useState('');
-  const [shareUrl, setShareUrl] = useState(null);
-  const [showActionModal, setShowActionModal] = useState(false);
-  const [currentAction, setCurrentAction] = useState({ type: '', value: '', points: 10 });
-
-  const actionTypes = [
-    { value: 'follow_instagram', label: 'Follow Instagram Page', icon: '📸' },
-    { value: 'follow_twitter', label: 'Follow Twitter Account', icon: '🐦' },
-    { value: 'subscribe_youtube', label: 'Subscribe YouTube Channel', icon: '📺' },
-    { value: 'visit_website', label: 'Visit Website', icon: '🌐' },
-    { value: 'share_post', label: 'Share Post', icon: '🔄' },
-    { value: 'custom', label: 'Custom Action', icon: '⚡' }
-  ];
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) setFormData((prev) => ({ ...prev, coverImage: file }));
-  };
+  const set = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
   const addAction = () => {
-    if (currentAction.type && currentAction.value) {
-      const label = actionTypes.find(a => a.value === currentAction.type)?.label || currentAction.type;
-      setFormData(prev => ({ ...prev, actions: [...prev.actions, { ...currentAction, label }] }));
-      setCurrentAction({ type: '', value: '', points: 10 });
-      setShowActionModal(false);
+    if (!draft.value.trim()) return;
+    setActions((list) => [...list, { ...draft, value: draft.value.trim(), points: Number(draft.points) || 1 }]);
+    setDraft((d) => ({ ...emptyAction, type: d.type }));
+  };
+
+  const totalEntries = actions.reduce((n, a) => n + a.points, 0);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    if (actions.length === 0) {
+      setError({ message: 'Add at least one action participants can complete.' });
+      return;
+    }
+    setSaving(true);
+    try {
+      const created = await api('/competitions', {
+        method: 'POST',
+        body: {
+          ...form,
+          winnersCount: Number(form.winnersCount),
+          startDate: new Date(form.startDate).toISOString(),
+          endDate: new Date(form.endDate).toISOString(),
+          actions,
+        },
+      });
+      navigate(`/competitions/${created.id}`, { state: { created: true } });
+    } catch (err) {
+      setError(err);
+      setSaving(false);
     }
   };
 
-  const removeAction = (index) => {
-    setFormData(prev => ({ ...prev, actions: prev.actions.filter((_, i) => i !== index) }));
-  };
-
-  const handleSubmit = async (e) => {
-  e.preventDefault();
-  try {
-    // Prepare payload without File objects
-    const { coverImage, entryFee, ...rest } = formData;
-    const payload = { ...rest, entryFee: Number(entryFee) || 0 };
-    const token = localStorage.getItem('token');
-    const res = await fetch('http://localhost:3009/api/competitions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify(payload),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      const url = (data && data.shareUrl) || `${window.location.origin}/competitions/${(data && data._id) || ''}`;
-      setShareUrl(url);
-      setMessage('Competition created successfully! Share your link below.');
-    } else {
-      setMessage('Failed to create competition.');
-    }
-  } catch (err) {
-    console.error(err);
-    setMessage('Server error.');
-  }
-};
+  const meta = actionMeta(draft.type);
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/competitions')}
-            className="p-2 hover:bg-gray-100 rounded-lg"
-          >
-            <ArrowLeft size={22} className="text-gray-600" />
-          </button>
-          <h1 className="text-2xl font-bold text-gray-900">Create Competition</h1>
-        </div>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <div className="flex items-center gap-3">
+        <Link to="/competitions" className="rounded-lg p-2 text-gray-600 hover:bg-gray-100" aria-label="Back to competitions">
+          <ArrowLeft size={22} />
+        </Link>
+        <h1 className="text-2xl font-bold text-gray-900">New competition</h1>
       </div>
 
-      {message && (
-        <div
-          className={`p-3 rounded-lg text-sm ${
-            message.includes('✅')
-              ? 'bg-green-100 text-green-700'
-              : message.includes('❌')
-              ? 'bg-red-100 text-red-700'
-              : 'bg-yellow-100 text-yellow-700'
-          }`}
-        >
-          {message}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="bg-white shadow p-6 rounded-lg space-y-6">
-        <div>
-          <label className="block font-medium mb-2 text-gray-700">Competition Title *</label>
-          <input
-            type="text"
-            name="title"
-            value={formData.title}
-            onChange={handleChange}
-            required
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-        </div>
-
-        <div>
-          <label className="block font-medium mb-2 text-gray-700">Description *</label>
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            rows={4}
-            required
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
+      <form onSubmit={submit} className="space-y-6">
+        <section className="card space-y-5 p-6">
+          <h2 className="text-lg font-semibold text-gray-900">Campaign</h2>
           <div>
-            <label className="block font-medium mb-2 text-gray-700">Start Date *</label>
-            <input
-              type="datetime-local"
-              name="startDate"
-              value={formData.startDate}
-              onChange={handleChange}
-              required
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
+            <label className="label" htmlFor="title">Title *</label>
+            <input id="title" name="title" value={form.title} onChange={set} required maxLength={120} className="input" placeholder="Summer Sneaker Giveaway" />
+          </div>
+          <div>
+            <label className="label" htmlFor="description">Description *</label>
+            <textarea id="description" name="description" value={form.description} onChange={set} required rows={3} maxLength={2000} className="input" placeholder="What can people win, and why should they take part?" />
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label className="label" htmlFor="prize">Prize</label>
+              <input id="prize" name="prize" value={form.prize} onChange={set} maxLength={200} className="input" placeholder="A pair of running shoes" />
+            </div>
+            <div>
+              <label className="label" htmlFor="type">Type</label>
+              <select id="type" name="type" value={form.type} onChange={set} className="input">
+                {COMPETITION_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="startDate">Starts *</label>
+              <input id="startDate" type="datetime-local" name="startDate" value={form.startDate} onChange={set} required className="input" />
+            </div>
+            <div>
+              <label className="label" htmlFor="endDate">Ends *</label>
+              <input id="endDate" type="datetime-local" name="endDate" value={form.endDate} onChange={set} required min={form.startDate} className="input" />
+            </div>
+            <div>
+              <label className="label" htmlFor="winnersCount">Number of winners</label>
+              <input id="winnersCount" type="number" name="winnersCount" value={form.winnersCount} onChange={set} min={1} max={100} className="input" />
+            </div>
+            <div>
+              <label className="label" htmlFor="coverImage">Cover image URL</label>
+              <input id="coverImage" type="url" name="coverImage" value={form.coverImage} onChange={set} className="input" placeholder="https://…" />
+            </div>
+          </div>
+        </section>
+
+        <section className="card space-y-5 p-6">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Ways to enter</h2>
+            <p className="text-sm text-gray-600">Each action earns the participant its number of entries. More entries mean better odds in the draw.</p>
           </div>
 
-          <div>
-            <label className="block font-medium mb-2 text-gray-700">End Date *</label>
-            <input
-              type="datetime-local"
-              name="endDate"
-              value={formData.endDate}
-              onChange={handleChange}
-              required
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block font-medium mb-2 text-gray-700">Competition Type *</label>
-          <select
-            name="type"
-            value={formData.type}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="standard">Standard</option>
-            <option value="quick-draw">Quick Draw</option>
-            <option value="tournament">Tournament</option>
-            <option value="challenge">Challenge</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block font-medium mb-2 text-gray-700">Entry Fee ($)</label>
-          <input
-            type="number"
-            name="entryFee"
-            value={formData.entryFee}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="0.00 (Free)"
-          />
-        </div>
-
-        <div>
-          <label className="block font-medium mb-2 text-gray-700">Required Actions</label>
-          <div className="flex justify-between items-center mb-3">
-            <p className="text-gray-600 text-sm">Add actions participants must complete to enter</p>
-            <button
-              type="button"
-              onClick={() => setShowActionModal(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600"
-            >
-              <Plus size={16} /> Add Action
+          <div className="grid gap-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 sm:grid-cols-[1.2fr_1.6fr_0.6fr_auto] sm:items-end">
+            <div>
+              <label className="label" htmlFor="actionType">Action</label>
+              <select id="actionType" value={draft.type} onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value }))} className="input">
+                {ACTION_TYPES.map((a) => (
+                  <option key={a.value} value={a.value}>{a.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="actionValue">{draft.type === 'custom' ? 'Instruction' : 'Account or link'}</label>
+              <input
+                id="actionValue"
+                value={draft.value}
+                onChange={(e) => setDraft((d) => ({ ...d, value: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addAction();
+                  }
+                }}
+                placeholder={meta.placeholder}
+                className="input"
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="actionPoints">Entries</label>
+              <input id="actionPoints" type="number" min={1} max={100} value={draft.points} onChange={(e) => setDraft((d) => ({ ...d, points: e.target.value }))} className="input" />
+            </div>
+            <button type="button" onClick={addAction} disabled={!draft.value.trim()} className="btn-primary">
+              <Plus size={16} aria-hidden="true" /> Add
             </button>
           </div>
 
-          {formData.actions.length > 0 ? (
-            <div className="space-y-3">
-              {formData.actions.map((action, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{actionTypes.find(a => a.value === action.type)?.icon || '⚡'}</span>
-                    <div>
-                      <p className="font-medium text-gray-800">{action.label}</p>
-                      <p className="text-sm text-gray-500">{action.value}</p>
-                    </div>
-                  </div>
-                  <button onClick={() => removeAction(index)} className="text-red-500 hover:text-red-700">
-                    <X size={18} />
-                  </button>
-                </div>
-              ))}
-            </div>
+          {actions.length === 0 ? (
+            <p className="text-sm italic text-gray-500">No actions yet — add at least one.</p>
           ) : (
-            <p className="text-sm text-gray-500 italic">No actions added yet.</p>
+            <ul className="space-y-2">
+              {actions.map((a, i) => {
+                const m = actionMeta(a.type);
+                return (
+                  <li key={`${a.type}-${a.value}-${i}`} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 p-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <m.icon className={m.color} size={20} aria-hidden="true" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900">{m.label}</p>
+                        <p className="truncate text-sm text-gray-500">{a.value}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-medium text-primary-700">+{a.points} {a.points === 1 ? 'entry' : 'entries'}</span>
+                      <button type="button" onClick={() => setActions((list) => list.filter((_, j) => j !== i))} className="rounded p-1 text-gray-400 hover:text-red-600" aria-label={`Remove ${m.label}`}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+              <li className="pt-1 text-right text-sm text-gray-600">Up to {totalEntries} entries per participant</li>
+            </ul>
           )}
-        </div>
+        </section>
 
-        <div>
-          <label className="block font-medium mb-2 text-gray-700">Cover Image</label>
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-            {formData.coverImage ? (
-              <div>
-                <ImageIcon size={40} className="mx-auto text-primary-500 mb-2" />
-                <p className="text-gray-600 mb-2">{formData.coverImage.name}</p>
-                <button
-                  type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, coverImage: null }))}
-                  className="text-red-500 hover:underline"
-                >
-                  Remove
-                </button>
-              </div>
-            ) : (
-              <>
-                <ImageIcon size={40} className="mx-auto text-gray-400 mb-2" />
-                <label
-                  htmlFor="cover-upload"
-                  className="inline-block px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 cursor-pointer"
-                >
-                  Choose File
-                </label>
-                <input
-                  id="cover-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-              </>
-            )}
-          </div>
-        </div>
+        <ErrorBox error={error} />
 
-        <div className="flex gap-4 pt-4">
-          <button
-            type="submit"
-            className="flex-1 px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600"
-          >
-            Create Competition
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/competitions')}
-            className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-          >
-            Cancel
+        <div className="flex justify-end gap-3">
+          <Link to="/competitions" className="btn-secondary">Cancel</Link>
+          <button type="submit" disabled={saving} className="btn-primary px-6">
+            {saving ? 'Creating…' : 'Create competition'}
           </button>
         </div>
       </form>
-
-      {shareUrl && (
-        <div className="bg-white shadow p-6 rounded-lg space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-semibold text-gray-800">Share Your Campaign</h3>
-              <p className="text-sm text-gray-500">Copy the link below to start promoting your Landing Page</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <input value={shareUrl} readOnly className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-700" />
-            <button
-              type="button"
-              onClick={async () => { try { await navigator.clipboard.writeText(shareUrl); setMessage('Link copied to clipboard'); } catch {} }}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-              title="Copy link"
-            >
-              Copy
-            </button>
-            <a href={shareUrl} target="_blank" rel="noreferrer" className="px-3 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600" title="Open">
-              Open
-            </a>
-          </div>
-        </div>
-      )}
-
-      {showActionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Add Action</h3>
-              <button onClick={() => setShowActionModal(false)} className="text-gray-500 hover:text-gray-700">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">Action Type *</label>
-                <select
-                  value={currentAction.type}
-                  onChange={(e) => setCurrentAction(prev => ({ ...prev, type: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="">Select type</option>
-                  {actionTypes.map(a => (
-                    <option key={a.value} value={a.value}>{a.icon} {a.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">Value *</label>
-                <input
-                  type="text"
-                  value={currentAction.value}
-                  onChange={(e) => setCurrentAction(prev => ({ ...prev, value: e.target.value }))}
-                  placeholder="e.g., @mybrand, https://example.com"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">Points *</label>
-                <input
-                  type="number"
-                  value={currentAction.points}
-                  onChange={(e) => setCurrentAction(prev => ({ ...prev, points: Number(e.target.value) }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
-                  min="1"
-                />
-              </div>
-
-              <div className="flex gap-3 mt-4">
-                <button
-                  type="button"
-                  onClick={addAction}
-                  disabled={!currentAction.type || !currentAction.value}
-                  className="flex-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:bg-gray-300"
-                >
-                  Add Action
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowActionModal(false)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
-
-export default CreateCompetition;

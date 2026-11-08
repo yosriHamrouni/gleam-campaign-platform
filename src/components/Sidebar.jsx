@@ -1,75 +1,63 @@
 // src/components/Sidebar.jsx
-import React from 'react'
-import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Trophy, Zap, Gift, Camera, Image, Settings, Users, Bell } from 'lucide-react'
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, PlusCircle, Trophy, X } from 'lucide-react';
 
-const menuItems = [
+const items = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: Trophy, label: 'Competitions', path: '/competitions', badge: 2 },
-  { icon: Zap, label: 'Quick Draws', path: '/quick-draws' },
-  { icon: Gift, label: 'Rewards', path: '/rewards' },
-  { icon: Camera, label: 'Captures', path: '/captures' },
-  { icon: Image, label: 'Galleries', path: '/galleries' }
-]
+  { icon: Trophy, label: 'Competitions', path: '/competitions', end: true },
+  { icon: PlusCircle, label: 'New competition', path: '/competitions/new' },
+];
 
-const bottomItems = [
-  { icon: Settings, label: 'Settings', path: '/settings' },
-  { icon: Users, label: 'Users', path: '/users', badge: 1 },
-  { icon: Bell, label: 'Updates', path: '/updates', badge: 4 }
-]
-
-function Sidebar() {
+export function Logo() {
   return (
-    <aside className="w-56 bg-dark-800 border-r border-gray-700 flex flex-col">
-      <div className="p-4 border-b border-gray-700">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary-500 rounded flex items-center justify-center text-white font-bold">Y</div>
-          <span className="text-white font-semibold">Yosrihamrouni</span>
-        </div>
-      </div>
-      
-      <nav className="flex-1 overflow-y-auto py-4">
-        {menuItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors ${
-                isActive ? 'bg-gray-700 text-white border-r-2 border-primary-500' : ''
-              }`
-            }
-          >
-            <item.icon size={20} />
-            <span className="flex-1">{item.label}</span>
-            {item.badge && (
-              <span className="bg-primary-500 text-white text-xs px-2 py-0.5 rounded-full">{item.badge}</span>
-            )}
-          </NavLink>
-        ))}
-      </nav>
-
-      <div className="border-t border-gray-700 py-4">
-        <div className="px-4 text-xs text-gray-500 mb-2">Site</div>
-        {bottomItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors ${
-                isActive ? 'bg-gray-700 text-white' : ''
-              }`
-            }
-          >
-            <item.icon size={20} />
-            <span className="flex-1">{item.label}</span>
-            {item.badge && (
-              <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{item.badge}</span>
-            )}
-          </NavLink>
-        ))}
-      </div>
-    </aside>
-  )
+    <div className="flex items-center gap-2">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-500 font-bold text-white">G</div>
+      <span className="font-semibold text-white">Gleam Campaigns</span>
+    </div>
+  );
 }
 
-export default Sidebar
+export default function Sidebar({ open, onClose }) {
+  return (
+    <>
+      {open && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={onClose} aria-hidden="true" />}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-dark-800 transition-transform lg:static lg:translate-x-0 ${
+          open ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        aria-label="Main navigation"
+      >
+        <div className="flex items-center justify-between border-b border-gray-700 p-4">
+          <Logo />
+          <button className="text-gray-400 hover:text-white lg:hidden" onClick={onClose} aria-label="Close menu">
+            <X size={20} />
+          </button>
+        </div>
+        <nav className="flex-1 py-4">
+          {items.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.end}
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                  isActive
+                    ? 'border-r-2 border-primary-500 bg-gray-700 text-white'
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                }`
+              }
+            >
+              <item.icon size={20} aria-hidden="true" />
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+        <p className="border-t border-gray-700 p-4 text-xs text-gray-500">
+          Participants enter through each campaign’s public link.
+        </p>
+      </aside>
+    </>
+  );
+}

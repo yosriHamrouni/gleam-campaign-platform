@@ -4,17 +4,11 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  optimizeDeps: { force: true },
   server: {
     port: 3008,
+    // The React app calls /api/* on its own origin; Vite forwards it to Express.
     proxy: {
-      // ✅ ensure API calls from React reach the Express server correctly
-      '/api': {
-        target: 'http://localhost:3009',
-        changeOrigin: true,
-        secure: false,
-      },
+      '/api': { target: 'http://127.0.0.1:3009', changeOrigin: true },
     },
   },
-  appType: 'spa',
 })

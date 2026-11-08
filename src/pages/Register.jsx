@@ -1,56 +1,63 @@
 // src/pages/Register.jsx
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AuthCard from '../components/AuthCard';
+import { ErrorBox } from '../components/ui';
 
 export default function Register() {
   const { register } = useAuth();
-  const nav = useNavigate();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const from = useLocation().state?.from;
+  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const set = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError(null);
     setLoading(true);
     try {
-      await register(name, email, password);
-      nav('/dashboard', { replace: true });
+      await register(form.name, form.email, form.password);
+      navigate(from?.pathname || '/dashboard', { replace: true });
     } catch (err) {
-      setError('Registration failed');
-    } finally {
+      setError(err);
       setLoading(false);
     }
   };
 
   return (
-    <div className='min-h-screen flex items-center justify-center bg-gray-50 p-4'>
-      <div className='bg-white w-full max-w-sm rounded-xl shadow p-6 space-y-4'>
-        <h1 className='text-xl font-semibold text-gray-800'>Create account</h1>
-        {error && <div className='text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2'>{error}</div>}
-        <form onSubmit={onSubmit} className='space-y-3'>
-          <div>
-            <label className='block text-sm text-gray-700 mb-1'>Name</label>
-            <input type='text' value={name} onChange={(e)=>setName(e.target.value)} required className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500'/>
-          </div>
-          <div>
-            <label className='block text-sm text-gray-700 mb-1'>Email</label>
-            <input type='email' value={email} onChange={(e)=>setEmail(e.target.value)} required className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500'/>
-          </div>
-          <div>
-            <label className='block text-sm text-gray-700 mb-1'>Password</label>
-            <input type='password' value={password} onChange={(e)=>setPassword(e.target.value)} required className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500'/>
-          </div>
-          <button disabled={loading} className='w-full bg-primary-500 text-white rounded-lg py-2 hover:bg-primary-600'>
-            {loading ? 'Creating...' : 'Create account'}
-          </button>
-        </form>
-        <p className='text-sm text-gray-600'>Already have an account? <Link to='/login' className='text-primary-600 hover:underline'>Sign in</Link></p>
-      </div>
-    </div>
+    <AuthCard
+      title="Create an account"
+      subtitle="One account to run campaigns and to enter them."
+      footer={
+        <>
+          Already have an account?{' '}
+          <Link to="/login" state={{ from }} className="font-medium text-primary-700 hover:underline">Sign in</Link>
+        </>
+      }
+    >
+      <form onSubmit={onSubmit} className="space-y-4">
+        <ErrorBox error={error} />
+        <div>
+          <label className="label" htmlFor="name">Name</label>
+          <input id="name" name="name" autoComplete="name" value={form.name} onChange={set} required maxLength={80} className="input" />
+        </div>
+        <div>
+          <label className="label" htmlFor="email">Email</label>
+          <input id="email" name="email" type="email" autoComplete="email" value={form.email} onChange={set} required className="input" />
+        </div>
+        <div>
+          <label className="label" htmlFor="password">Password</label>
+          <input id="password" name="password" type="password" autoComplete="new-password" value={form.password} onChange={set} required minLength={8} className="input" />
+          <p className="mt-1 text-xs text-gray-500">At least 8 characters.</p>
+        </div>
+        <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
+          {loading ? 'Creating account…' : 'Create account'}
+        </button>
+      </form>
+    </AuthCard>
   );
 }
-

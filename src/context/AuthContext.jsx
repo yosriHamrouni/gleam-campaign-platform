@@ -1,63 +1,64 @@
 // src/context/AuthContext.jsx
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { api, tokenStore } from '../lib/api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem('token'));
+  const [token, setToken] = useState(() => tokenStore.get());
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(!!token);
 
+  // Restore the session from a stored token; drop it if the API rejects it.
   useEffect(() => {
     if (!token) return;
+    let alive = true;
     setLoading(true);
-    fetch('http://localhost:3009/api/auth/me', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((u) => setUser(u))
-      .finally(() => setLoading(false));
+    api('/auth/me')
+      .then((u) => alive && setUser(u))
+      .catch(() => {
+        if (!alive) return;
+        tokenStore.clear();
+        setToken(null);
+        setUser(null);
+      })
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
   }, [token]);
 
-  const login = async (email, password) => {
-    const res = await fetch('http://localhost:3009/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) throw new Error('Invalid credentials');
-    const data = await res.json();
-    localStorage.setItem('token', data.token);
-    setToken(data.token);
+  const startSession = useCallback((data) => {
+    tokenStore.set(data.token);
     setUser(data.user);
-    return data.user;
-  };
-
-  const register = async (name, email, password) => {
-    const res = await fetch('http://localhost:3009/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password }),
-    });
-    if (!res.ok) throw new Error('Registration failed');
-    const data = await res.json();
-    localStorage.setItem('token', data.token);
     setToken(data.token);
-    setUser(data.user);
     return data.user;
-  };
+  }, []);
 
-  const logout = () => {
-    localStorage.removeItem('token');
+  const login = useCallback(
+    async (email, password) => startSession(await api('/auth/login', { method: 'POST', body: { email, password } })),
+    [startSession]
+  );
+
+  const register = useCallback(
+    async (name, email, password) =>
+      startSession(await api('/auth/register', { method: 'POST', body: { name, email, password } })),
+    [startSession]
+  );
+
+  const logout = useCallback(() => {
+    tokenStore.clear();
     setToken(null);
     setUser(null);
-  };
+  }, []);
 
-  const value = useMemo(() => ({ token, user, loading, login, register, logout }), [token, user, loading]);
+  const value = useMemo(
+    () => ({ token, user, loading, login, register, logout }),
+    [token, user, loading, login, register, logout]
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   return useContext(AuthContext);
 }
-
