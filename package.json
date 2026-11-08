@@ -1,30 +1,38 @@
 {
-  "name": "gleam",
-  "version": "1.0.0",
+  "name": "gleam-campaign-platform",
+  "version": "1.1.0",
+  "description": "Gleam.io-style giveaway platform: creators build campaigns from point-valued social actions, participants earn entries, winners are drawn by weighted lottery.",
   "type": "module",
   "private": true,
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
-    "server": "node server/server.js",
+    "server": "node --watch server/server.js",
     "dev": "vite",
-    "start": "concurrently \"npm run server\" \"npm run dev\""
+    "start": "concurrently -n api,web -c blue,green \"npm run server\" \"npm run dev\"",
+    "build": "vite build",
+    "preview": "vite preview",
+    "seed": "node server/seed.js",
+    "test": "node --test \"server/test/*.test.js\""
   },
   "dependencies": {
-    "@tailwindcss/forms": "^0.5.10",
-    "@tanstack/react-query": "^5.90.5",
     "bcryptjs": "2.4.3",
     "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "9.0.2",
     "lucide-react": "^0.548.0",
     "mongoose": "^6.13.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
+    "@tailwindcss/forms": "^0.5.10",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.0.1",
-    "daisyui": "^5.4.7",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.13",
     "vite": "^5.4.10"

@@ -2,60 +2,48 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { env } from "../config/env.js";
+import { HttpError } from "../lib/httpError.js";
 
-const signToken = (user) => {
-  const secret = process.env.JWT_SECRET || "dev-secret-change-me";
-  return jwt.sign({ id: user._id, role: user.role }, secret, { expiresIn: "7d" });
-};
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const signToken = (user) => jwt.sign({ id: user._id, role: user.role }, env.jwtSecret, { expiresIn: env.jwtExpiresIn });
+
+// POST /api/auth/register — every new account is a regular user; the role is never taken from the request.
 export const register = async (req, res) => {
-  try {
-    const { name, email, password, role } = req.body || {};
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "name, email and password are required" });
-    }
-    const existing = await User.findOne({ email: email.toLowerCase() });
-    if (existing) return res.status(409).json({ message: "Email already in use" });
+  const name = String(req.body?.name ?? "").trim();
+  const email = String(req.body?.email ?? "").trim().toLowerCase();
+  const password = String(req.body?.password ?? "");
 
-    const hash = await bcrypt.hash(password, 10);
-    const user = await User.create({ name, email: email.toLowerCase(), password: hash, role: role === "admin" ? "admin" : "user" });
-    const token = signToken(user);
-    res.status(201).json({
-      token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt },
-    });
-  } catch (err) {
-    console.error("Auth register error:", err);
-    res.status(500).json({ message: "Server error during registration" });
-  }
+  const errors = [];
+  if (!name) errors.push("name is required");
+  if (!EMAIL_RE.test(email)) errors.push("a valid email is required");
+  if (password.length < 8) errors.push("password must be at least 8 characters");
+  if (errors.length) throw new HttpError(400, errors[0], errors);
+
+  if (await User.exists({ email })) throw new HttpError(409, "An account with this email already exists");
+
+  const user = await User.create({ name, email, password: await bcrypt.hash(password, 10) });
+  res.status(201).json({ token: signToken(user), user: user.toPublic() });
 };
 
+// POST /api/auth/login
 export const login = async (req, res) => {
-  try {
-    const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ message: "email and password are required" });
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user) return res.status(401).json({ message: "Invalid credentials" });
-    const ok = await bcrypt.compare(password, user.password);
-    if (!ok) return res.status(401).json({ message: "Invalid credentials" });
-    const token = signToken(user);
-    res.status(200).json({
-      token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt },
-    });
-  } catch (err) {
-    console.error("Auth login error:", err);
-    res.status(500).json({ message: "Server error during login" });
+  const email = String(req.body?.email ?? "").trim().toLowerCase();
+  const password = String(req.body?.password ?? "");
+  if (!email || !password) throw new HttpError(400, "Email and password are required");
+
+  const user = await User.findOne({ email }).select("+password");
+  // Same message whether the email or the password is wrong.
+  if (!user || !(await bcrypt.compare(password, user.password))) {
+    throw new HttpError(401, "Invalid email or password");
   }
+  res.json({ token: signToken(user), user: user.toPublic() });
 };
 
+// GET /api/auth/me
 export const me = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select("_id name email role createdAt");
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.status(200).json(user);
-  } catch (err) {
-    res.status(500).json({ message: "Server error" });
-  }
+  const user = await User.findById(req.user.id);
+  if (!user) throw new HttpError(404, "User not found");
+  res.json(user.toPublic());
 };
-
